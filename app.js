@@ -1,28 +1,27 @@
 
 /* ==========================================
-   SYNTAX GROVE
-   Syntax Tree + Syntax-Directed Translation
-   Supports numbers, alphabets and operators
+   SYNTAX GROVE - COMPLETE APP.JS
+   Correct AST Structure + SVG Connectors
 ========================================== */
 
-const $ = (selector) => document.querySelector(selector);
+"use strict";
 
-// ==========================================
-// ERROR MESSAGE
-// ==========================================
+const $ = (selector, root = document) => root.querySelector(selector);
+
+/* ==========================================
+   ERROR HANDLING
+========================================== */
 
 function showError(message) {
     const toast = $("#toast");
     const toastMessage = $("#toast-message");
 
     if (!toast) {
-        alert(message);
+        console.error(message);
         return;
     }
 
-    if (toastMessage) {
-        toastMessage.textContent = message;
-    }
+    if (toastMessage) toastMessage.textContent = message;
 
     toast.classList.remove("hide");
     toast.classList.add("show");
@@ -30,16 +29,15 @@ function showError(message) {
 
 function hideError() {
     const toast = $("#toast");
-
     if (toast) {
         toast.classList.remove("show");
         toast.classList.add("hide");
     }
 }
 
-// ==========================================
-// TOKENIZER
-// ==========================================
+/* ==========================================
+   TOKENIZER
+========================================== */
 
 function tokenize(input) {
     const tokens = [];
@@ -54,7 +52,6 @@ function tokenize(input) {
             continue;
         }
 
-        // Numbers: 10, 3.14, .5
         const number = remaining.match(
             /^(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?/
         );
@@ -64,12 +61,10 @@ function tokenize(input) {
                 type: "number",
                 value: Number(number[0])
             });
-
             i += number[0].length;
             continue;
         }
 
-        // Variables: a, total, num1, student_marks
         const identifier = remaining.match(
             /^[a-zA-Z_][a-zA-Z0-9_]*/
         );
@@ -79,12 +74,10 @@ function tokenize(input) {
                 type: "identifier",
                 value: identifier[0]
             });
-
             i += identifier[0].length;
             continue;
         }
 
-        // Operators and parentheses
         const operator = remaining.match(
             /^(?:\*\*|[+\-*/%()])/
         );
@@ -94,7 +87,6 @@ function tokenize(input) {
                 type: "operator",
                 value: operator[0]
             });
-
             i += operator[0].length;
             continue;
         }
@@ -105,13 +97,14 @@ function tokenize(input) {
     }
 
     tokens.push({ type: "EOF", value: "" });
-
     return tokens;
 }
 
-// ==========================================
-// PARSER
-// ==========================================
+/* ==========================================
+   PARSER
+   Precedence:
+   Parentheses > ** > unary > * / % > + -
+========================================== */
 
 class Parser {
     constructor(tokens) {
@@ -141,7 +134,7 @@ class Parser {
             throw new Error("Enter an expression first.");
         }
 
-        const result = this.parseAdditive();
+        const ast = this.parseAdditive();
 
         if (this.current().type !== "EOF") {
             throw new Error(
@@ -149,7 +142,7 @@ class Parser {
             );
         }
 
-        return result;
+        return ast;
     }
 
     parseAdditive() {
@@ -258,9 +251,127 @@ function buildAST(expression) {
     return new Parser(tokenize(expression)).parse();
 }
 
-// ==========================================
-// SYNTAX TREE RENDERING
-// ==========================================
+/* ==========================================
+   TREE CSS
+========================================== */
+
+function installTreeStyles() {
+    let style = $("#syntax-tree-inline-styles");
+
+    if (!style) {
+        style = document.createElement("style");
+        style.id = "syntax-tree-inline-styles";
+        document.head.appendChild(style);
+    }
+
+    style.textContent = `
+        #tree-output {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            width: 100%;
+            min-height: 220px;
+            padding: 35px 24px;
+            box-sizing: border-box;
+            overflow: auto;
+        }
+
+        .tree-svg-stage {
+            position: relative;
+            display: block;
+            width: max-content;
+            min-width: 100%;
+            box-sizing: border-box;
+        }
+
+        .tree-visual-node {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 0 0 auto;
+            width: max-content;
+        }
+
+        .tree-node-label {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-width: 42px;
+            min-height: 39px;
+            padding: 5px 12px;
+            box-sizing: border-box;
+            border: 1px solid #a5e6ae;
+            border-radius: 10px;
+            background: #102d20;
+            color: #b8efc4;
+            font-weight: 700;
+            box-shadow: 0 4px 12px #0003;
+        }
+
+        .tree-node-label.operator-node {
+            background: #254d35;
+            color: #e2ffcf;
+        }
+
+        .tree-node-label.identifier-node {
+            background: #183c30;
+            color: #b2f0d0;
+        }
+
+        .tree-node-label.number-node {
+            background: #102d20;
+            color: #a5e6ae;
+        }
+
+        .tree-children {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            gap: 0;
+            padding-top: 42px;
+        }
+
+        .tree-children > .tree-visual-node {
+            margin: 0 14px;
+        }
+
+        .tree-connector-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            display: block;
+            overflow: visible;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        @media (max-width: 600px) {
+            #tree-output {
+                justify-content: flex-start;
+                padding: 28px 14px;
+            }
+
+            .tree-children > .tree-visual-node {
+                margin: 0 8px;
+            }
+
+            .tree-node-label {
+                min-width: 34px;
+                min-height: 34px;
+                padding: 4px 8px;
+            }
+        }
+    `;
+}
+
+/* ==========================================
+   BUILD TREE DOM
+========================================== */
 
 function createTreeNode(node) {
     const wrapper = document.createElement("div");
@@ -290,13 +401,11 @@ function createTreeNode(node) {
         children = [node.argument];
     }
 
-    if (children.length) {
-        wrapper.classList.add("has-children");
-
+    if (children.length > 0) {
         const childContainer = document.createElement("div");
         childContainer.className = "tree-children";
 
-        children.forEach((child) => {
+        children.forEach(child => {
             childContainer.appendChild(createTreeNode(child));
         });
 
@@ -306,36 +415,183 @@ function createTreeNode(node) {
     return wrapper;
 }
 
+/* ==========================================
+   SVG CONNECTORS
+   Coordinates use the output container.
+========================================== */
+
+function drawTreeConnectors(stage, tree) {
+    const output = $("#tree-output");
+    if (!output || !stage || !tree) return;
+
+    const previous = stage.querySelector(".tree-connector-svg");
+    if (previous) previous.remove();
+
+    const stageRect = stage.getBoundingClientRect();
+
+    const width = Math.max(stage.scrollWidth, stage.clientWidth);
+    const height = Math.max(stage.scrollHeight, stage.clientHeight);
+
+    const svgNS = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(svgNS, "svg");
+
+    svg.classList.add("tree-connector-svg");
+    svg.setAttribute("width", width);
+    svg.setAttribute("height", height);
+    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+    svg.setAttribute("aria-hidden", "true");
+
+    svg.style.width = `${width}px`;
+    svg.style.height = `${height}px`;
+
+    function addPath(d) {
+        const path = document.createElementNS(svgNS, "path");
+
+        path.setAttribute("d", d);
+        path.setAttribute("fill", "none");
+        path.setAttribute("stroke", "#729c7d");
+        path.setAttribute("stroke-width", "1.4");
+        path.setAttribute("stroke-linecap", "round");
+        path.setAttribute("stroke-linejoin", "round");
+
+        svg.appendChild(path);
+    }
+
+    const parents = [
+        tree,
+        ...tree.querySelectorAll(".tree-visual-node")
+    ];
+
+    parents.forEach(parent => {
+        const parentLabel = Array.from(parent.children).find(
+            el => el.classList.contains("tree-node-label")
+        );
+
+        const childContainer = Array.from(parent.children).find(
+            el => el.classList.contains("tree-children")
+        );
+
+        if (!parentLabel || !childContainer) return;
+
+        const parentRect = parentLabel.getBoundingClientRect();
+
+        const parentX =
+            parentRect.left + parentRect.width / 2 - stageRect.left;
+
+        const parentY =
+            parentRect.bottom - stageRect.top;
+
+        const children = Array.from(childContainer.children).filter(
+            el => el.classList.contains("tree-visual-node")
+        );
+
+        const childPoints = children.map(child => {
+            const childLabel = Array.from(child.children).find(
+                el => el.classList.contains("tree-node-label")
+            );
+
+            if (!childLabel) return null;
+
+            const rect = childLabel.getBoundingClientRect();
+
+            return {
+                x: rect.left + rect.width / 2 - stageRect.left,
+                y: rect.top - stageRect.top
+            };
+        }).filter(Boolean);
+
+        if (childPoints.length === 0) return;
+
+        const firstChildY = Math.min(...childPoints.map(p => p.y));
+        const branchY = parentY + (firstChildY - parentY) / 2;
+
+        // Vertical segment from the parent's exact center.
+        addPath(`M ${parentX} ${parentY} V ${branchY}`);
+
+        if (childPoints.length === 1) {
+            addPath(
+                `M ${parentX} ${branchY} V ${childPoints[0].y}`
+            );
+        } else {
+            const leftX = Math.min(...childPoints.map(p => p.x));
+            const rightX = Math.max(...childPoints.map(p => p.x));
+
+            // Horizontal branch connects exact child centers.
+            addPath(`M ${leftX} ${branchY} H ${rightX}`);
+
+            // Vertical branch to each child's exact center.
+            childPoints.forEach(point => {
+                addPath(
+                    `M ${point.x} ${branchY} V ${point.y}`
+                );
+            });
+        }
+    });
+
+    stage.insertBefore(svg, stage.firstChild);
+}
+
+/* ==========================================
+   RENDER SYNTAX TREE
+========================================== */
+
+let treeResizeObserver = null;
+let treeResizeHandler = null;
+
 function renderTree(ast) {
+    installTreeStyles();
+
     const output = $("#tree-output");
 
     if (!output) {
-        throw new Error("Syntax tree output container was not found.");
+        throw new Error("Cannot find #tree-output in your HTML.");
     }
 
     output.replaceChildren();
     output.classList.remove("empty-state");
 
+    const stage = document.createElement("div");
+    stage.className = "tree-svg-stage";
+
     const tree = createTreeNode(ast);
 
-    // Ensure the tree is visible even if some CSS rules are missing.
-    output.style.display = "flex";
-    output.style.justifyContent = "center";
-    output.style.alignItems = "flex-start";
-    output.style.overflowX = "auto";
-    output.style.padding = "35px 15px";
-    output.style.minHeight = "140px";
+    stage.appendChild(tree);
+    output.appendChild(stage);
 
-    tree.style.display = "flex";
-    tree.style.flexDirection = "column";
-    tree.style.alignItems = "center";
+    const redraw = () => {
+        requestAnimationFrame(() => {
+            drawTreeConnectors(stage, tree);
+        });
+    };
 
-    output.appendChild(tree);
+    // Wait for layout before measuring node positions.
+    redraw();
+    requestAnimationFrame(redraw);
+    requestAnimationFrame(() => requestAnimationFrame(redraw));
+
+    if (treeResizeObserver) {
+        treeResizeObserver.disconnect();
+    }
+
+    if (treeResizeHandler) {
+        window.removeEventListener("resize", treeResizeHandler);
+    }
+
+    if ("ResizeObserver" in window) {
+        treeResizeObserver = new ResizeObserver(redraw);
+        treeResizeObserver.observe(stage);
+        treeResizeObserver.observe(output);
+    }
+
+    treeResizeHandler = redraw;
+    window.addEventListener("resize", treeResizeHandler, {
+        passive: true
+    });
 }
 
-// ==========================================
-// THREE-ADDRESS CODE GENERATION
-// ==========================================
+/* ==========================================
+   THREE-ADDRESS CODE
+========================================== */
 
 function generateTAC(ast) {
     const instructions = [];
@@ -373,37 +629,13 @@ function generateTAC(ast) {
             return temp;
         }
 
-        throw new Error("Could not generate intermediate code.");
+        throw new Error("Unsupported syntax-tree node.");
     }
 
     const result = generate(ast);
     instructions.push(`result = ${result}`);
 
     return instructions;
-}
-
-// ==========================================
-// EXPRESSION DESCRIPTION
-// ==========================================
-
-function describeExpression(ast) {
-    if (ast.type === "NumberLiteral") {
-        return `Number: ${ast.value}`;
-    }
-
-    if (ast.type === "Identifier") {
-        return `Variable: ${ast.name}`;
-    }
-
-    if (ast.type === "UnaryExpression") {
-        return `Unary operator: ${ast.operator}`;
-    }
-
-    if (ast.type === "BinaryExpression") {
-        return `Operator: ${ast.operator}`;
-    }
-
-    return "Expression";
 }
 
 function countNodes(ast) {
@@ -418,9 +650,11 @@ function countNodes(ast) {
     return 1;
 }
 
-// ==========================================
-// SHOW TRANSLATION OUTPUT
-// ==========================================
+/* ==========================================
+   TRANSLATION DISPLAY
+========================================== */
+
+let currentExpression = "";
 
 function renderTranslation(ast) {
     const codeOutput = $("#code-output");
@@ -436,29 +670,22 @@ function renderTranslation(ast) {
         details.replaceChildren();
 
         const items = [
-            `Expression: ${getExpressionForDetails()}`,
+            `Expression: ${currentExpression}`,
             `Syntax tree nodes: ${countNodes(ast)}`,
-            `Generated instructions: ${instructions.length}`,
-            describeExpression(ast)
+            `Generated instructions: ${instructions.length}`
         ];
 
-        items.forEach((item) => {
-            const line = document.createElement("p");
-            line.textContent = item;
-            details.appendChild(line);
+        items.forEach(item => {
+            const paragraph = document.createElement("p");
+            paragraph.textContent = item;
+            details.appendChild(paragraph);
         });
     }
 }
 
-let currentExpression = "";
-
-function getExpressionForDetails() {
-    return currentExpression;
-}
-
-// ==========================================
-// SYNTAX TREE FORM
-// ==========================================
+/* ==========================================
+   FORM HANDLERS
+========================================== */
 
 function handleTreeSubmit(event) {
     event.preventDefault();
@@ -481,17 +708,10 @@ function handleTreeSubmit(event) {
 
         hideError();
     } catch (error) {
-        if (status) {
-            status.textContent = "Invalid expression";
-        }
-
+        if (status) status.textContent = "Invalid expression";
         showError(error.message);
     }
 }
-
-// ==========================================
-// TRANSLATION FORM
-// ==========================================
 
 function handleTranslationSubmit(event) {
     event.preventDefault();
@@ -508,70 +728,59 @@ function handleTranslationSubmit(event) {
         const ast = buildAST(currentExpression);
 
         renderTranslation(ast);
-
         hideError();
     } catch (error) {
         showError(error.message);
     }
 }
 
-// ==========================================
-// EXAMPLE BUTTONS
-// ==========================================
+/* ==========================================
+   EXAMPLE BUTTONS
+========================================== */
 
 function loadExample(button) {
     const expression = button.dataset.expression;
-
     if (!expression) return;
 
-    const explorer = button.closest("#explorer");
-    const translation = button.closest("#translation");
-
-    if (explorer) {
+    if (button.closest("#explorer")) {
         const input = $("#tree-expression");
 
         if (input) {
             input.value = expression;
+            $("#tree-form")?.requestSubmit();
         }
-
-        $("#tree-form").requestSubmit();
-    } else if (translation) {
+    } else if (button.closest("#translation")) {
         const input = $("#translation-expression");
 
         if (input) {
             input.value = expression;
+            $("#translation-form")?.requestSubmit();
         }
-
-        $("#translation-form").requestSubmit();
     }
 }
 
-// ==========================================
-// INITIALIZE
-// ==========================================
+/* ==========================================
+   INITIALIZATION
+========================================== */
 
 document.addEventListener("DOMContentLoaded", () => {
-    const treeForm = $("#tree-form");
-    const translationForm = $("#translation-form");
+    installTreeStyles();
 
-    if (treeForm) {
-        treeForm.addEventListener("submit", handleTreeSubmit);
-    }
+    $("#tree-form")?.addEventListener(
+        "submit",
+        handleTreeSubmit
+    );
 
-    if (translationForm) {
-        translationForm.addEventListener(
-            "submit",
-            handleTranslationSubmit
-        );
-    }
+    $("#translation-form")?.addEventListener(
+        "submit",
+        handleTranslationSubmit
+    );
 
-    document.querySelectorAll(".example-button").forEach((button) => {
-        button.addEventListener("click", () => loadExample(button));
+    document.querySelectorAll(".example-button").forEach(button => {
+        button.addEventListener("click", () => {
+            loadExample(button);
+        });
     });
 
-    const closeButton = $("#toast-close");
-
-    if (closeButton) {
-        closeButton.addEventListener("click", hideError);
-    }
+    $("#toast-close")?.addEventListener("click", hideError);
 });
